@@ -5,7 +5,7 @@ project (ZeldaClassic)
 set(USE_PCH FALSE CACHE BOOL "Use precompiled headers")
 set(UNITY_BUILD FALSE CACHE BOOL "Unity build")
 
-set(CMAKE_CXX_STANDARD 98)
+set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 option(WANT_ZSCRIPT "Enable ZScript Compiler" on)
 
@@ -135,6 +135,47 @@ if(MSVC)
 		list(APPEND ZQUESTEXTRASOURCES src/precompiledzq.cpp)
 	endif()
 
+# macOS
+
+elseif(APPLE)
+	# Locate Allegro 5 via pkg-config (installed by Homebrew: brew install allegro).
+	# For distribution builds, set ALLEGRO5_STATIC=ON to link a static Allegro 5
+	# compiled from source and placed in libs/osx/allegro5/.
+	find_package(PkgConfig REQUIRED)
+	pkg_check_modules(ALLEGRO5 REQUIRED
+		allegro-5
+		allegro_font-5
+		allegro_ttf-5
+		allegro_audio-5
+		allegro_acodec-5
+		allegro_image-5
+		allegro_primitives-5
+		allegro_dialog-5
+		allegro_main-5
+	)
+
+	include_directories(${ALLEGRO5_INCLUDE_DIRS})
+	link_directories(${ALLEGRO5_LIBRARY_DIRS})
+
+	# macOS system frameworks required by Allegro 5
+	set(MACOS_FRAMEWORKS
+		"-framework Cocoa"
+		"-framework OpenGL"
+		"-framework AudioToolbox"
+		"-framework CoreAudio"
+		"-framework IOKit"
+		"-framework CoreVideo"
+		"-framework AppKit"
+	)
+
+	set(ALLEGROLIB ${ALLEGRO5_LIBRARIES})
+	set(IMAGELIBS "")   # Allegro 5 handles image loading via allegro_image-5
+	set(SOUNDLIBS "")   # Allegro 5 handles audio via allegro_audio-5 / allegro_acodec-5
+
+	add_definitions(-DALLEGRO_MACOSX)
+	add_compile_options(-Wall -Wno-unused-variable)
+	# No -m32: macOS targets 64-bit only (see Phase 3)
+
 # Linux
 
 elseif(LINUX)
@@ -171,6 +212,8 @@ target_link_libraries(zcsound ${ALLEGROLIB} ${SOUNDLIBS} ${ZCSOUNDLIBSEXTRA})
 
 if(MSVC)
 	list(APPEND ROMVIEWEXTRASOURCES rv_icon.rc)
+elseif(APPLE)
+	set(ROMVIEWLIBSEXTRA ${MACOS_FRAMEWORKS})
 elseif(LINUX)
 	list(APPEND ROMVIEWEXTRASOURCES rv_icon.c)
 	set(ROMVIEWLIBSEXTRA ${X11_LIBRARIES})
@@ -194,7 +237,10 @@ target_link_libraries(romview ${IMAGELIBS} ${ALLEGROLIB} ${SOUNDLIBS} ${ROMVIEWL
 
 if(MSVC)
 	list(APPEND ZELDAEXTRASOURCES zc_icon.rc)
-	
+elseif(APPLE)
+	# Unix domain sockets work on macOS; reuse the Linux single-instance file.
+	list(APPEND ZELDAEXTRASOURCES src/single_instance_unix.cpp)
+	set(ZELDALIBSEXTRA ${MACOS_FRAMEWORKS})
 elseif(LINUX)
 	list(APPEND ZELDAEXTRASOURCES zc_icon.c src/single_instance_unix.cpp)
 	set(ZELDALIBSEXTRA ${X11_LIBRARIES})
@@ -211,6 +257,8 @@ add_executable(zelda ${ZELDA_CORE_SOURCES} ${ZELDA_GUI_SOURCES} ${ZELDA_SPRITE_S
 
 if(WIN32)
 	target_link_libraries(zelda zcsound winmm ${IMAGELIBS} ${ALLEGROLIB} ${ZELDALIBSEXTRA})
+elseif(APPLE)
+	target_link_libraries(zelda zcsound ${IMAGELIBS} ${ALLEGROLIB} ${ZELDALIBSEXTRA})
 elseif(LINUX)
 	target_link_libraries(zelda zcsound ${IMAGELIBS} ${ALLEGROLIB} ${ZELDALIBSEXTRA})
 endif()
@@ -227,6 +275,9 @@ endif()
 
 if(MSVC)
 	list(APPEND ZQUESTEXTRASOURCES zq_icon.rc)
+elseif(APPLE)
+	list(APPEND ZQUESTEXTRASOURCES src/single_instance_unix.cpp)
+	set(ZQUESTLIBSEXTRA ${MACOS_FRAMEWORKS})
 elseif(LINUX)
 	list(APPEND ZQUESTEXTRASOURCES zq_icon.c src/single_instance_unix.cpp)
 	set(ZQUESTLIBSEXTRA ${X11_LIBRARIES})
@@ -251,4 +302,14 @@ if(MSVC)
 	target_compile_definitions(zcsound PRIVATE ZCM_DLL)
 	target_compile_definitions(zelda PRIVATE ZCM_DLL_IMPORT)
 	target_compile_definitions(zquest PRIVATE ZCM_DLL_IMPORT)
+elseif(APPLE)
+	# On macOS, zcsound is a .dylib; use GCC visibility attributes (see zcmusic.h).
+	target_compile_definitions(zcsound PRIVATE ZCM_DLL)
+	target_compile_definitions(zelda PRIVATE ZCM_DLL_IMPORT)
+	target_compile_definitions(zquest PRIVATE ZCM_DLL_IMPORT)
+	# Ensure default symbol visibility for the shared library
+	set_target_properties(zcsound PROPERTIES
+		C_VISIBILITY_PRESET default
+		CXX_VISIBILITY_PRESET default
+	)
 endif()
