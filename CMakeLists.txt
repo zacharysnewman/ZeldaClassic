@@ -50,6 +50,15 @@ set(ZCSOUNDSOURCES
 	src/alleg_compat.cpp
 )
 
+# On macOS, add the Allegro 4→5 compatibility shim to all targets.
+# It is conditionally compiled (#ifdef __APPLE__) so it is inert on other platforms,
+# but we only add it to the source lists on APPLE to keep things explicit.
+if(APPLE)
+	set(ALLEGRO5_COMPAT_SOURCES src/allegro5_compat.cpp)
+else()
+	set(ALLEGRO5_COMPAT_SOURCES "")
+endif()
+
 set(ROMVIEW_MODULES
 	${CMAKE_SOURCE_DIR}/modules/romview/RomviewCore.txt
 	${CMAKE_SOURCE_DIR}/modules/romview/RomviewGUI.txt
@@ -203,7 +212,7 @@ endif()
 if(MSVC AND (MSVC_VERSION GREATER 1600))
 	set(ZCSOUNDLIBSEXTRA legacy_stdio_definitions)
 endif()
-add_library(zcsound SHARED ${ZCSOUNDSOURCES})
+add_library(zcsound SHARED ${ZCSOUNDSOURCES} ${ALLEGRO5_COMPAT_SOURCES})
 target_link_libraries(zcsound ${ALLEGROLIB} ${SOUNDLIBS} ${ZCSOUNDLIBSEXTRA})
 
 #############################################################
@@ -224,7 +233,7 @@ if(UNITY_BUILD)
 	enable_unity_build(RomviewGUI ROMVIEW_GUI_SOURCES)
 endif()
 
-add_executable(romview ${ROMVIEW_CORE_SOURCES} ${ROMVIEW_GUI_SOURCES} ${ROMVIEWEXTRASOURCES} ${ROMVIEW_MODULES})
+add_executable(romview ${ROMVIEW_CORE_SOURCES} ${ROMVIEW_GUI_SOURCES} ${ROMVIEWEXTRASOURCES} ${ALLEGRO5_COMPAT_SOURCES} ${ROMVIEW_MODULES})
 
 target_link_libraries(romview ${IMAGELIBS} ${ALLEGROLIB} ${SOUNDLIBS} ${ROMVIEWLIBSEXTRA})
 
@@ -253,7 +262,7 @@ if(UNITY_BUILD)
 	enable_unity_build(ZeldaSubscreen ZELDA_SUBSCREEN_SOURCES)
 endif()
 
-add_executable(zelda ${ZELDA_CORE_SOURCES} ${ZELDA_GUI_SOURCES} ${ZELDA_SPRITE_SOURCES} ${ZELDA_SUBSCREEN_SOURCES} ${ZELDA_SCRIPTING_SOURCES} ${ZELDAEXTRASOURCES} ${ZELDA_MODULES})
+add_executable(zelda ${ZELDA_CORE_SOURCES} ${ZELDA_GUI_SOURCES} ${ZELDA_SPRITE_SOURCES} ${ZELDA_SUBSCREEN_SOURCES} ${ZELDA_SCRIPTING_SOURCES} ${ZELDAEXTRASOURCES} ${ALLEGRO5_COMPAT_SOURCES} ${ZELDA_MODULES})
 
 if(WIN32)
 	target_link_libraries(zelda zcsound winmm ${IMAGELIBS} ${ALLEGROLIB} ${ZELDALIBSEXTRA})
@@ -290,7 +299,7 @@ if(UNITY_BUILD)
 	enable_unity_build(ZQuestZScript ZQUEST_ZSCRIPT_SOURCES)
 endif()
 
-add_executable(zquest ${ZQUEST_CORE_SOURCES} ${ZQUEST_GUI_SOURCES} ${ZQUEST_MISC_SOURCES} ${ZQUEST_ZSCRIPT_SOURCES} ${ZQUESTEXTRASOURCES} ${BISON_ZScriptParser_OUTPUTS} ${FLEX_ZScriptLexer_OUTPUTS} ${ZQUEST_MODULES})
+add_executable(zquest ${ZQUEST_CORE_SOURCES} ${ZQUEST_GUI_SOURCES} ${ZQUEST_MISC_SOURCES} ${ZQUEST_ZSCRIPT_SOURCES} ${ZQUESTEXTRASOURCES} ${ALLEGRO5_COMPAT_SOURCES} ${BISON_ZScriptParser_OUTPUTS} ${FLEX_ZScriptLexer_OUTPUTS} ${ZQUEST_MODULES})
 
 target_link_libraries(zquest zcsound ${IMAGELIBS} ${ALLEGROLIB} ${ZQUESTLIBSEXTRA})
 if(MSVC AND USE_PCH)
