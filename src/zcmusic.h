@@ -6,12 +6,23 @@
 #ifndef _ZCMUSIC_H_
 #define _ZCMUSIC_H_
 
-#if defined ZCM_DLL
-#define ZCM_EXTERN extern __declspec(dllexport)
-#elif defined ZCM_DLL_IMPORT
-#define ZCM_EXTERN extern __declspec(dllimport)
+#if defined(_WIN32)
+  #if defined ZCM_DLL
+    #define ZCM_EXTERN extern __declspec(dllexport)
+  #elif defined ZCM_DLL_IMPORT
+    #define ZCM_EXTERN extern __declspec(dllimport)
+  #else
+    #define ZCM_EXTERN extern
+  #endif
+#elif defined(__APPLE__)
+  /* On macOS, zcsound is a .dylib; use GCC/Clang visibility attributes. */
+  #if defined ZCM_DLL || defined ZCM_DLL_IMPORT
+    #define ZCM_EXTERN extern __attribute__((visibility("default")))
+  #else
+    #define ZCM_EXTERN extern
+  #endif
 #else
-#define ZCM_EXTERN extern
+  #define ZCM_EXTERN extern
 #endif
 
 #ifdef __cplusplus
